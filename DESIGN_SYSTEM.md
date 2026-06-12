@@ -173,32 +173,222 @@ A warm, professional design system for document management interfaces. Inspired 
 - Type: 190px
 - Location: 85px
 
-## Design Improvements
+## Design System v2 — Implementation
 
-### Recommended Enhancements
+This repository now ships a fully implemented `src/` directory built with **Vite 6 + Tailwind CSS v4 + Radix UI + shadcn conventions**.
 
-1. **Visual Hierarchy**: Increase contrast between header and body text. Use the Atari 1972 font more prominently for section headers.
+### Tech Stack
 
-2. **Interactive States**: Add clear hover, focus, and active states for all clickable elements with subtle transitions.
+| Concern | Tool |
+|---|---|
+| Build | Vite 6.3.5 |
+| Styling | Tailwind CSS 4 (CSS-first `@theme {}` in `src/app.css`) |
+| Primitives | Radix UI (`@radix-ui/react-accordion`, `@radix-ui/react-checkbox`) |
+| Icons | Lucide React 0.487 |
+| Utilities | `clsx` + `tailwind-merge` → `cn()` in `src/lib/utils.ts` |
 
-3. **Icon Consistency**: Replace mixed icon styles with a unified icon set (recommended: Lucide React).
+### Design Tokens (Tailwind v4)
 
-4. **Responsive Behavior**: Add mobile-friendly table views with card-based layouts for smaller screens.
+All tokens live in `src/app.css` inside a `@theme {}` block — no `tailwind.config.ts` required:
 
-5. **Empty States**: Design placeholder states for empty tables with helpful call-to-action.
+```css
+@theme {
+  --font-atari:   "Atari 1972", serif;
+  --font-figtree: "Figtree", sans-serif;
+  --font-poppins: "Poppins", sans-serif;
 
-6. **Loading States**: Add skeleton loaders for table rows during data fetching.
+  --color-surface-background: #fefef9;
+  --color-surface-base:       #f8f5ee;
+  --color-surface-border:     #d6c8b4;
+  --color-text-primary:       #2b2b2b;
+  --color-text-secondary:     #6b6257;
+  --color-accent:             #3a4a6a;
+  --color-accent-neutral:     #4a2c24;
+  --color-ai:                 #88adbb;
 
-7. **Accessibility**: 
-   - Ensure color contrast meets WCAG AA standards
-   - Add focus indicators for keyboard navigation
-   - Include proper ARIA labels for interactive elements
+  --spacing-xxxsmall: 4px;   /* → p-xxxsmall, gap-xxxsmall … */
+  --spacing-xxsmall:  8px;
+  --spacing-xsmall:   12px;
+  --spacing-small:    16px;
+  --spacing-medium:   24px;
+  --spacing-large:    32px;
+  --spacing-xlarge:   40px;
+  --spacing-xxlarge:  64px;
+  --spacing-xxxlarge: 128px;
 
-8. **Micro-interactions**: 
-   - Smooth transitions on button hover (200ms ease)
-   - Row highlight on table hover
-   - Filter badge animations
+  --radius-box:  16px;   /* → rounded-box  */
+  --radius-card: 24px;   /* → rounded-card */
+  --radius-page: 32px;   /* → rounded-page */
+}
+```
 
-9. **Typography Refinement**: Use optical sizing for better readability at different scales.
+### Components
 
-10. **Border Treatment**: Reduce border opacity slightly for a softer, more refined appearance.
+| Component | File | Notes |
+|---|---|---|
+| `<Button>` | `src/components/Button/Button.tsx` | color × saliency × size grid, full a11y |
+| `<Badge>` | `src/components/Badge/Badge.tsx` | `animate` prop triggers entrance animation |
+| `<SearchBar>` | `src/components/SearchBar/SearchBar.tsx` | default + ai variants |
+| `<Checkbox>` | `src/components/Checkbox/Checkbox.tsx` | Radix primitive, indeterminate support |
+| `<Accordion>` | `src/components/Accordion/Accordion.tsx` | Radix animated accordion |
+| `<Header>` | `src/components/Header/Header.tsx` | Responsive, keyboard accessible |
+| `<Icon>` | `src/components/Icon/Icon.tsx` | Lucide React wrapper, 42 named icons |
+| `<EmptyState>` | `src/components/EmptyState/EmptyState.tsx` | 3 variants: no-data, no-results, error |
+| `<Skeleton>` | `src/components/Skeleton/Skeleton.tsx` | Shimmer loaders + `<SkeletonTable>` |
+
+---
+
+## Design Improvements (Implemented)
+
+### 1. Visual Hierarchy
+
+Atari 1972 at full display size for every section header:
+
+```tsx
+<h2 className="font-atari text-[28px] md:text-[32px] tracking-[0.08em] uppercase text-accent-neutral">
+  Section Title
+</h2>
+```
+
+### 2. Interactive States
+
+All interactive elements include hover, focus, and active states with `200ms ease` transitions:
+
+```tsx
+// Button — example of explicit per-state classes
+className="hover:bg-accent/90 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ai focus-visible:ring-offset-2"
+```
+
+Global transition applied via `@layer base`:
+
+```css
+* {
+  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+```
+
+### 3. Icon Consistency
+
+All 42 icons are rendered through a single `<Icon>` wrapper backed by Lucide React — no more inline SVG paths scattered across components:
+
+```tsx
+import { Icon } from '@/components'
+<Icon name="key" size="small" status="brown" />
+<Icon name="finance" size="medium" status="black" />
+```
+
+### 4. Responsive Behavior
+
+Responsive padding on every layout container; header nav collapses on mobile:
+
+```tsx
+// Mobile-first horizontal padding
+<main className="px-medium sm:px-large md:px-xxlarge lg:px-xxxlarge">
+
+// Nav hidden below md breakpoint
+<nav className="hidden md:flex items-center gap-xsmall">
+```
+
+### 5. Empty States
+
+Three ready-made variants with illustrations, contextual copy, and CTA:
+
+```tsx
+// No data — first-run state
+<EmptyState variant="no-data" onCta={() => createAgreement()} />
+
+// No results — after search/filter
+<EmptyState variant="no-results" onCta={() => clearFilters()} />
+
+// Error — fetch failure
+<EmptyState variant="error" onCta={() => refetch()} />
+```
+
+### 6. Loading States
+
+Shimmer skeleton loaders that match the real table layout:
+
+```tsx
+import { SkeletonTable } from '@/components'
+
+{isLoading ? <SkeletonTable rows={5} /> : <AgreementsTable data={agreements} />}
+```
+
+Defined in `src/app.css`:
+
+```css
+.skeleton {
+  background: linear-gradient(90deg, #e8dccb 25%, #f5f0e8 50%, #e8dccb 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+```
+
+### 7. Accessibility
+
+- **WCAG AA contrast** on all text/background pairings (verified against palette)
+- **Global focus indicator** on every `*:focus-visible` element:
+
+```css
+*:focus-visible {
+  outline: 2px solid var(--color-ai);   /* #88adbb */
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+```
+
+- **Radix primitives** for Accordion and Checkbox provide keyboard navigation and ARIA state for free
+- `aria-label`, `aria-busy`, `aria-live="polite"` on relevant elements
+
+### 8. Micro-interactions
+
+Badge entrance, row hover highlight, and chevron rotation:
+
+```css
+/* Badge entrance */
+@keyframes badge-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Row hover — applied via .row-hover class */
+.row-hover:hover { background-color: rgba(74, 44, 36, 0.04); }
+```
+
+Accordion chevron via Radix `data-[state=open]`:
+
+```tsx
+<span className="transition-transform duration-300 group-data-[state=open]:rotate-180">
+  <Icon name="expandCarrot" size="small" status="black" />
+</span>
+```
+
+### 9. Typography Refinement
+
+Optical letter-spacing per size step in the `@theme` block:
+
+| Step | Size | Letter-spacing | Notes |
+|---|---|---|---|
+| Display | 64px | −0.02em | Tighter — large letterforms are wide |
+| H2 | 24px | −0.01em | Slightly tight |
+| H3 | 18px | 0em | Neutral |
+| Label | 14px | +0.01em | Slightly open for UI clarity |
+| Caption | 12px | +0.02em | Looser — small type needs air |
+
+Combined with `font-optical-sizing: auto` on `body` for sub-pixel hinting.
+
+### 10. Border Treatment
+
+Borders reduced to 45% opacity for a softer, more refined appearance:
+
+```css
+/* Utility class */
+.border-subtle { border-color: rgba(214, 200, 180, 0.45); }
+
+/* Used in Tailwind as an inline value */
+className="border border-subtle"
+```
+
+Replaces all `border-surface-border` (100% opacity) in table rows, cards, and dividers.
